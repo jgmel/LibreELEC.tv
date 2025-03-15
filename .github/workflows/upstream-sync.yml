@@ -1,0 +1,48 @@
+name: 'Upstream Sync'
+
+on:
+  schedule:
+    - cron:  '0 0 * * *'
+
+  workflow_dispatch:
+    inputs:
+      sync_test_mode:
+        description: 'Fork Sync Test Mode'
+        type: boolean
+        default: false
+
+jobs:
+  sync_latest_from_upstream:
+    runs-on: ubuntu-latest
+    name: Sync latest commits from upstream repo
+
+    steps:
+
+    - name: Checkout target repo
+      uses: actions/checkout@v4
+      with:
+        ref: master
+        fetch-depth: 0
+
+    - name: Setup Git, Add upstream and fetch changes
+      run: |
+        git config --local user.name "github-actions[bot]"
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git remote add upstream https://github.com/LibreELEC/LibreELEC.tv.git || true
+        git fetch upstream --prune
+
+    - name: Rebase master
+      run: |
+        if git rebase upstream/master; then
+            if [ "${{ github.event.inputs.sync_test_mode }}" != "true" ]; then
+                git push origin master --force-with-lease
+            else
+                echo "Sync test mode is active. Skipping push."
+            fi
+        else
+            git rebase --abort
+            echo "Skipping master due to conflicts"
+            git status
+            git log --oneline -n 5
+            exit 1
+        fi
