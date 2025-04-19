@@ -17,7 +17,7 @@ export LC_ALL=C
 
 # set default independent variables
 ROOT="${PWD}"
-DISTRO_DIR="${ROOT}/distributions"
+DISTRO_DIR="${DISTRO_DIR:-${ROOT}/distributions}"
 PROJECT_DIR="${ROOT}/projects"
 
 # determines DISTRO, if not forced by user
