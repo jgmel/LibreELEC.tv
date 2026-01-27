@@ -30,8 +30,8 @@ case "${LINUX}" in
     PKG_PATCH_DIRS="raspberrypi"
     ;;
   rockchip)
-    PKG_VERSION="78d82960b939df64cf7d26ca5ed34eb87f44c9e5" # 6.18.2
-    PKG_SHA256="a11985db0126ba0e80e34a97d4a6e3b77cf13c89a3af76733a44b8c4f8d5b767"
+    PKG_VERSION="5dfbc5357c34bdf81c84aa78bc8e3d6d9ba10aad" # 6.18.7
+    PKG_SHA256="dcb5b08946f044cee1cb584397f981586c8b4565e01a95c668e679b1bcd2470a"
     PKG_URL="https://github.com/chewitt/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="default rockchip"
