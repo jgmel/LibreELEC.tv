@@ -83,6 +83,7 @@ pre_configure_target() {
                              --disable-uriparser \
                              --enable-tvhcsa \
                              --enable-trace \
+                             --enable-vue_build \
                              --nowerror \
                              --disable-bintray_cache \
                              --python=${TOOLCHAIN}/bin/python"
