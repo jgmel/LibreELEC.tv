@@ -24,7 +24,8 @@ PKG_ADDON_ICON_NAME="MPD"
 PKG_ADDON_ICON_SIZE="270"
 PKG_ADDON_TYPE="xbmc.service"
 
-PKG_MESON_OPTS_TARGET="-Dadplug=disabled \
+PKG_MESON_OPTS_TARGET="--wrap-mode=nodownload \
+                       -Dadplug=disabled \
                        -Dalsa=enabled \
                        -Dao=disabled \
                        -Daudiofile=disabled \
@@ -96,6 +97,13 @@ PKG_MESON_OPTS_TARGET="-Dadplug=disabled \
                        -Dzeroconf=avahi \
                        -Dzlib=enabled \
                        -Dzzip=disabled"
+
+# lame is a -sysroot package, so meson's find_library('mp3lame') and
+# lame/lame.h probe (mpd does not use pkg-config for lame) cannot see it.
+# mpd's lame encoder plugin is C++, so the include goes to cpp_args
+# (TARGET_CXXFLAGS) and the library dir to cpp_link_args (TARGET_LDFLAGS).
+TARGET_CXXFLAGS+=" -I$(get_install_dir lame)/usr/include"
+TARGET_LDFLAGS+=" -L$(get_install_dir lame)/usr/lib"
 
 addon() {
   mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
