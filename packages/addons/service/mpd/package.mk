@@ -24,8 +24,7 @@ PKG_ADDON_ICON_NAME="MPD"
 PKG_ADDON_ICON_SIZE="270"
 PKG_ADDON_TYPE="xbmc.service"
 
-PKG_MESON_OPTS_TARGET="--wrap-mode=nodownload \
-                       -Dadplug=disabled \
+PKG_MESON_OPTS_TARGET="-Dadplug=disabled \
                        -Dalsa=enabled \
                        -Dao=disabled \
                        -Daudiofile=disabled \
