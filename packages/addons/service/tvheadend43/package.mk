@@ -10,8 +10,8 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="http://www.tvheadend.org"
 PKG_URL="https://github.com/tvheadend/tvheadend/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain argtable2 avahi comskip curl dvb-apps ffmpegx libdvbcsa libhdhomerun \
-                    libiconv openssl pcre2 pngquant:host Python3:host dtv-scan-tables"
+PKG_DEPENDS_TARGET="toolchain argtable2 avahi comskip curl dvb-apps ffmpegx lame libdvbcsa \
+                    libhdhomerun libiconv openssl pcre2 pngquant:host Python3:host dtv-scan-tables"
 PKG_DEPENDS_CONFIG="ffmpegx"
 PKG_SECTION="service"
 PKG_SHORTDESC="Tvheadend: a TV streaming server for Linux"
@@ -91,6 +91,11 @@ pre_configure_target() {
   # fails to build in subdirs
   cd ${PKG_BUILD}
   rm -rf .${TARGET_NAME}
+
+  # lame is a -sysroot package, so ffmpegx's static libavcodec.a (which
+  # pulls in libmp3lame symbols) can't be resolved without lame's
+  # install path explicitly added here too.
+  LDFLAGS+=" -L$(get_install_dir lame)/usr/lib"
 
   # pass ffmpegx to build
   CFLAGS+=" -I$(get_install_dir ffmpegx)/usr/local/include"
