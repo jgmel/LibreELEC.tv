@@ -1,7 +1,7 @@
-From 60b2e0ca54e6d5f4c5944a550cc016b419141a5a Mon Sep 17 00:00:00 2001
+From e44b7bb59d616f54e5fd51c789dfe4e79f3de454 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
 Date: Tue, 4 Oct 2022 20:36:18 +0200
-Subject: [PATCH 33/84] media: cedrus: Don't CPU map source buffers
+Subject: [PATCH 410/419] media: cedrus: Don't CPU map source buffers
 
 There is no need to access source buffers via CPU, so let's disable
 that. This will lower amount of virtual memory needed on 32-bit ARM
@@ -13,10 +13,10 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_video.c b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
-index 9fae2c7493d0..d70d7834d9bc 100644
+index ad4ec3490775..8872200e2dee 100644
 --- a/drivers/staging/media/sunxi/cedrus/cedrus_video.c
 +++ b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
-@@ -598,6 +598,7 @@ int cedrus_queue_init(void *priv, struct vb2_queue *src_vq,
+@@ -593,6 +593,7 @@ int cedrus_queue_init(void *priv, struct vb2_queue *src_vq,
  
  	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
  	src_vq->io_modes = VB2_MMAP | VB2_DMABUF;

@@ -1,7 +1,7 @@
-From bba5a721bca6ca39259195b85e4f8f65ea8a0171 Mon Sep 17 00:00:00 2001
+From ac9834338c7abb4afd0366cb665980cdda3e668a Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
 Date: Fri, 14 Oct 2022 20:15:43 +0200
-Subject: [PATCH 36/84] iommu/sun50i: Allow page sizes multiple of 4096
+Subject: [PATCH 409/419] iommu/sun50i: Allow page sizes multiple of 4096
 
 While peripheral supports only 4K page sizes, we can easily emulate
 support for bigger page sizes, up to 1M. This is done by making multiple
@@ -15,10 +15,10 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
  1 file changed, 25 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/iommu/sun50i-iommu.c b/drivers/iommu/sun50i-iommu.c
-index de10b569d9a9..8d49af8d4be1 100644
+index c5e26a68d838..1c081af821ba 100644
 --- a/drivers/iommu/sun50i-iommu.c
 +++ b/drivers/iommu/sun50i-iommu.c
-@@ -598,10 +598,12 @@ static int sun50i_iommu_map(struct iommu_domain *domain, unsigned long iova,
+@@ -612,7 +612,7 @@ static int sun50i_iommu_map(struct iommu_domain *domain, unsigned long iova,
  {
  	struct sun50i_iommu_domain *sun50i_domain = to_sun50i_domain(domain);
  	struct sun50i_iommu *iommu = sun50i_domain->iommu;
@@ -27,12 +27,16 @@ index de10b569d9a9..8d49af8d4be1 100644
  	u32 *page_table, *pte_addr;
  	int ret = 0;
  
+@@ -629,6 +629,8 @@ static int sun50i_iommu_map(struct iommu_domain *domain, unsigned long iova,
+ 		goto out;
+ 	}
+ 
 +	pages = size / SPAGE_SIZE;
 +
- 	/* the IOMMU can only handle 32-bit addresses, both input and output */
- 	if ((uint64_t)paddr >> 32) {
- 		ret = -EINVAL;
-@@ -617,18 +619,21 @@ static int sun50i_iommu_map(struct iommu_domain *domain, unsigned long iova,
+ 	page_table = sun50i_dte_get_page_table(sun50i_domain, iova, gfp);
+ 	if (IS_ERR(page_table)) {
+ 		ret = PTR_ERR(page_table);
+@@ -636,18 +638,21 @@ static int sun50i_iommu_map(struct iommu_domain *domain, unsigned long iova,
  	}
  
  	pte_index = sun50i_iova_get_pte_index(iova);
@@ -64,7 +68,7 @@ index de10b569d9a9..8d49af8d4be1 100644
  	*mapped = size;
  
  out:
-@@ -640,8 +645,10 @@ static size_t sun50i_iommu_unmap(struct iommu_domain *domain, unsigned long iova
+@@ -659,8 +664,10 @@ static size_t sun50i_iommu_unmap(struct iommu_domain *domain, unsigned long iova
  {
  	struct sun50i_iommu_domain *sun50i_domain = to_sun50i_domain(domain);
  	phys_addr_t pt_phys;
@@ -76,7 +80,7 @@ index de10b569d9a9..8d49af8d4be1 100644
  
  	dte = sun50i_domain->dt[sun50i_iova_get_dte_index(iova)];
  	if (!sun50i_dte_is_pt_valid(dte))
-@@ -650,13 +657,14 @@ static size_t sun50i_iommu_unmap(struct iommu_domain *domain, unsigned long iova
+@@ -669,13 +676,14 @@ static size_t sun50i_iommu_unmap(struct iommu_domain *domain, unsigned long iova
  	pt_phys = sun50i_dte_get_pt_address(dte);
  	pte_addr = (u32 *)phys_to_virt(pt_phys) + sun50i_iova_get_pte_index(iova);
  
