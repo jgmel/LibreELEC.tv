@@ -29,10 +29,10 @@ index e96c240f0933..588976c2afcd 100644
  	  Choose this option if you have an Allwinner SoC with the
  	  DesignWare HDMI controller. SoCs that support HDMI and
 diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
-index 1fe667e13057..e23b77b46557 100644
+index 0660ac4346a3..9a959be51416 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
-@@ -200,6 +200,10 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -304,6 +304,10 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
  		return dev_err_probe(dev, PTR_ERR(phy),
  				     "Couldn't get the HDMI PHY\n");
  
@@ -44,7 +44,7 @@ index 1fe667e13057..e23b77b46557 100644
  				     bridge, &sun8i_hdmi_enc_bridge_funcs);
  	if (IS_ERR(hdmi))
 diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
-index 5383d9267a4d..9d1158f24ddb 100644
+index 2e6a8cfdbf68..d2943a687eb9 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h
 @@ -13,6 +13,8 @@
@@ -88,7 +88,7 @@ index 5383d9267a4d..9d1158f24ddb 100644
  };
  
  struct sun8i_dw_hdmi_quirks {
-@@ -211,5 +224,6 @@ void sun8i_hdmi_phy_set_ops(struct sun8i_hdmi_phy *phy,
+@@ -212,5 +225,6 @@ void sun8i_hdmi_phy_set_ops(struct sun8i_hdmi_phy *phy,
  
  int sun8i_phy_clk_create(struct sun8i_hdmi_phy *phy, struct device *dev,
  			 bool second_parent);
@@ -96,10 +96,10 @@ index 5383d9267a4d..9d1158f24ddb 100644
  
  #endif /* _SUN8I_DW_HDMI_H_ */
 diff --git a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
-index 581233d6eaf2..b3938b28c89c 100644
+index 482241fa2ea0..9296c58e3ae1 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
-@@ -507,8 +507,9 @@ static void sun8i_hdmi_phy_init_h3(struct sun8i_hdmi_phy *phy)
+@@ -567,8 +567,9 @@ static void sun8i_hdmi_phy_init_h3(struct sun8i_hdmi_phy *phy)
  	regmap_update_bits(phy->regs, SUN8I_HDMI_PHY_PLL_CFG1_REG,
  			   SUN8I_HDMI_PHY_PLL_CFG1_CKIN_SEL_MSK, 0);
  
@@ -111,7 +111,7 @@ index 581233d6eaf2..b3938b28c89c 100644
  
  	/* read calibration data */
  	regmap_read(phy->regs, SUN8I_HDMI_PHY_ANA_STS_REG, &val);
-@@ -585,8 +586,47 @@ void sun8i_hdmi_phy_set_ops(struct sun8i_hdmi_phy *phy,
+@@ -645,8 +646,47 @@ void sun8i_hdmi_phy_set_ops(struct sun8i_hdmi_phy *phy,
  		plat_data->cur_ctr = variant->cur_ctr;
  		plat_data->phy_config = variant->phy_cfg;
  	}
@@ -159,7 +159,7 @@ index 581233d6eaf2..b3938b28c89c 100644
  static const struct regmap_config sun8i_hdmi_phy_regmap_config = {
  	.reg_bits	= 32,
  	.val_bits	= 32,
-@@ -669,6 +709,41 @@ struct sun8i_hdmi_phy *sun8i_hdmi_phy_get(struct device_node *node)
+@@ -740,6 +780,41 @@ struct sun8i_hdmi_phy *sun8i_hdmi_phy_get(struct device_node *node)
  	return phy;
  }
  
@@ -201,7 +201,7 @@ index 581233d6eaf2..b3938b28c89c 100644
  static int sun8i_hdmi_phy_probe(struct platform_device *pdev)
  {
  	struct device *dev = &pdev->dev;
-@@ -681,6 +756,15 @@ static int sun8i_hdmi_phy_probe(struct platform_device *pdev)
+@@ -752,6 +827,15 @@ static int sun8i_hdmi_phy_probe(struct platform_device *pdev)
  
  	phy->variant = of_device_get_match_data(dev);
  	phy->dev = dev;
@@ -217,7 +217,7 @@ index 581233d6eaf2..b3938b28c89c 100644
  
  	regs = devm_platform_ioremap_resource(pdev, 0);
  	if (IS_ERR(regs))
-@@ -727,8 +811,17 @@ static int sun8i_hdmi_phy_probe(struct platform_device *pdev)
+@@ -798,8 +882,17 @@ static int sun8i_hdmi_phy_probe(struct platform_device *pdev)
  	return 0;
  }
  
@@ -236,5 +236,5 @@ index 581233d6eaf2..b3938b28c89c 100644
  		.name = "sun8i-hdmi-phy",
  		.of_match_table = sun8i_hdmi_phy_of_table,
 -- 
+-- 
 2.43.0
-

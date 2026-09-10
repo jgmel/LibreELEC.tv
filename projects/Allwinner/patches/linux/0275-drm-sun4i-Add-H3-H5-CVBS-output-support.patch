@@ -1,24 +1,40 @@
-From 7fe3a042bf18fbc91b51cfe46678d71307e29f61 Mon Sep 17 00:00:00 2001
+From 379fcb35979ec23581a9237398874f86541a85b0 Mon Sep 17 00:00:00 2001
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
 Date: Tue, 16 Dec 2025 21:45:55 +0100
-Subject: [PATCH] wip h3/h5 cvbs
+Subject: [PATCH] drm/sun4i: Add H3/H5 CVBS output support
 
-Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+Add the second DE2 mixer, the second TCON (TV-mode) and the TV encoder
+(TVE) needed to drive composite video on H3 and H5: mixer1 and tcon1
+DT nodes and their ports/endpoints, the tve node, and TVE-specific
+support in sun4i_tv.c (per-SoC calibration register writes, since H3
+and H5 need different values than the original A10 encoder), plus a
+clock-driver fix giving the TVE clock its fixed post-divider.
+
+RGB->YUV color correction for the composite path reuses the DCSC
+mixer engine and the generic sunxi_engine apply/disable_color_correction
+hooks that sun4i_tv.c already calls; sun8i_mixer.c did not need its own
+copy of that support. Adds sun8i_h3_mixer1_cfg (H3's second, TV-only
+mixer instance: one UI + one VI channel) on top.
+
+LOCAL: adapted from an older, unmerged WIP against a different mixer
+architecture (pre-register-shadow/RCQ rework); the composite path is
+untested on hardware and no board enables it yet.
+
 ---
  arch/arm/boot/dts/allwinner/sun8i-h3.dtsi    | 22 +++++
  arch/arm/boot/dts/allwinner/sunxi-h3-h5.dtsi | 95 +++++++++++++++++++-
  arch/arm64/boot/dts/allwinner/sun50i-h5.dtsi | 22 +++++
  drivers/clk/sunxi-ng/ccu-sun8i-h3.c          | 14 ++-
  drivers/gpu/drm/sun4i/sun4i_tv.c             | 35 +++++++-
- drivers/gpu/drm/sun4i/sun8i_mixer.c          | 42 +++++++++
- drivers/gpu/drm/sun4i/sun8i_mixer.h          |  5 +-
- 7 files changed, 227 insertions(+), 8 deletions(-)
+ drivers/gpu/drm/sun4i/sun8i_mixer.c          | 56 +++++++++++-
+ drivers/gpu/drm/sun4i/sun8i_mixer.h          |  6 +-
+ 7 files changed, 238 insertions(+), 12 deletions(-)
 
 diff --git a/arch/arm/boot/dts/allwinner/sun8i-h3.dtsi b/arch/arm/boot/dts/allwinner/sun8i-h3.dtsi
-index cfd039840b43..37a19f69b990 100644
+index b9fd755946eb..7803e99bdc63 100644
 --- a/arch/arm/boot/dts/allwinner/sun8i-h3.dtsi
 +++ b/arch/arm/boot/dts/allwinner/sun8i-h3.dtsi
-@@ -239,6 +239,20 @@ ths: thermal-sensor@1c25000 {
+@@ -252,6 +252,20 @@ ths: thermal-sensor@1c25000 {
  			nvmem-cell-names = "calibration";
  			#thermal-sensor-cells = <0>;
  		};
@@ -39,7 +55,7 @@ index cfd039840b43..37a19f69b990 100644
  	};
  
  	thermal-zones {
-@@ -286,6 +300,10 @@ &mbus {
+@@ -299,6 +313,10 @@ &mbus {
  	compatible = "allwinner,sun8i-h3-mbus";
  };
  
@@ -50,7 +66,7 @@ index cfd039840b43..37a19f69b990 100644
  &mmc0 {
  	compatible = "allwinner,sun7i-a20-mmc";
  	clocks = <&ccu CLK_BUS_MMC0>,
-@@ -333,3 +351,7 @@ &rtc {
+@@ -346,3 +364,7 @@ &rtc {
  &sid {
  	compatible = "allwinner,sun8i-h3-sid";
  };
@@ -59,7 +75,7 @@ index cfd039840b43..37a19f69b990 100644
 +	remote-endpoint = <&tve_in_tcon1>;
 +};
 diff --git a/arch/arm/boot/dts/allwinner/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/allwinner/sunxi-h3-h5.dtsi
-index 7df60515a903..4b3b1ebe6d01 100644
+index e454a28bc973..8768e847cdaf 100644
 --- a/arch/arm/boot/dts/allwinner/sunxi-h3-h5.dtsi
 +++ b/arch/arm/boot/dts/allwinner/sunxi-h3-h5.dtsi
 @@ -102,7 +102,7 @@ osc32k: osc32k-clk {
@@ -71,7 +87,7 @@ index 7df60515a903..4b3b1ebe6d01 100644
  		status = "disabled";
  	};
  
-@@ -139,11 +139,50 @@ ports {
+@@ -146,11 +146,50 @@ ports {
  				#size-cells = <0>;
  
  				mixer0_out: port@1 {
@@ -123,7 +139,7 @@ index 7df60515a903..4b3b1ebe6d01 100644
  				};
  			};
  		};
-@@ -172,11 +211,19 @@ ports {
+@@ -179,11 +218,19 @@ ports {
  				#size-cells = <0>;
  
  				tcon0_in: port@0 {
@@ -144,7 +160,7 @@ index 7df60515a903..4b3b1ebe6d01 100644
  				};
  
  				tcon0_out: port@1 {
-@@ -192,6 +239,48 @@ tcon0_out_hdmi: endpoint@1 {
+@@ -199,6 +246,48 @@ tcon0_out_hdmi: endpoint@1 {
  			};
  		};
  
@@ -194,10 +210,10 @@ index 7df60515a903..4b3b1ebe6d01 100644
  			/* compatible and clocks are in per SoC .dtsi file */
  			reg = <0x01c0f000 0x1000>;
 diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h5.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-h5.dtsi
-index 01a29c1988a6..0819479b0c70 100644
+index 8e625e14f45d..6acaee707714 100644
 --- a/arch/arm64/boot/dts/allwinner/sun50i-h5.dtsi
 +++ b/arch/arm64/boot/dts/allwinner/sun50i-h5.dtsi
-@@ -180,6 +180,20 @@ ths: thermal-sensor@1c25000 {
+@@ -193,6 +193,20 @@ ths: thermal-sensor@1c25000 {
  			nvmem-cell-names = "calibration";
  			#thermal-sensor-cells = <1>;
  		};
@@ -218,7 +234,7 @@ index 01a29c1988a6..0819479b0c70 100644
  	};
  
  	thermal-zones {
-@@ -233,6 +247,10 @@ &mbus {
+@@ -246,6 +260,10 @@ &mbus {
  	compatible = "allwinner,sun50i-h5-mbus";
  };
  
@@ -229,7 +245,7 @@ index 01a29c1988a6..0819479b0c70 100644
  &mmc0 {
  	compatible = "allwinner,sun50i-h5-mmc",
  		     "allwinner,sun50i-a64-mmc";
-@@ -268,3 +286,7 @@ &rtc {
+@@ -281,3 +299,7 @@ &rtc {
  &sid {
  	compatible = "allwinner,sun50i-h5-sid";
  };
@@ -263,7 +279,7 @@ index 740c4c97331c..935aef02593f 100644
  static const char * const deinterlace_parents[] = { "pll-periph0", "pll-periph1" };
  static SUNXI_CCU_M_WITH_MUX_GATE(deinterlace_clk, "deinterlace", deinterlace_parents,
 diff --git a/drivers/gpu/drm/sun4i/sun4i_tv.c b/drivers/gpu/drm/sun4i/sun4i_tv.c
-index cce4e38789b9..de3498ab2c58 100644
+index 814b77f278f6..3bb98d74e537 100644
 --- a/drivers/gpu/drm/sun4i/sun4i_tv.c
 +++ b/drivers/gpu/drm/sun4i/sun4i_tv.c
 @@ -10,6 +10,7 @@
@@ -352,11 +368,11 @@ index cce4e38789b9..de3498ab2c58 100644
  };
  MODULE_DEVICE_TABLE(of, sun4i_tv_of_table);
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-index 3cf1e40f4e69..97dbbfe50790 100644
+index 5b5a34e63410..8bfba9a89e09 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-@@ -38,6 +38,12 @@ struct de2_fmt_info {
- 	u32	de2_fmt;
+@@ -71,6 +71,12 @@ static const struct reg_region sun8i_de2_blender_regions[] = {
+ 	{ }
  };
  
 +static const u32 sun8i_rgb2yuv_coef[12] = {
@@ -367,9 +383,9 @@ index 3cf1e40f4e69..97dbbfe50790 100644
 +
  static const struct de2_fmt_info de2_formats[] = {
  	{
- 		.drm_fmt = DRM_FORMAT_ARGB8888,
-@@ -454,11 +460,30 @@ static u32 *sun8i_mixer_get_supported_fmts(struct sunxi_engine *engine, u32 *num
- 	return formats;
+ 		.drm_fmt = DRM_FORMAT_AYUV,
+@@ -504,11 +510,30 @@ static bool sun8i_mixer_format_valid(struct sunxi_engine *engine, u32 format)
+ 	return format == MEDIA_BUS_FMT_RGB888_1X24;
  }
  
 +static void sun8i_mixer_apply_color_correction(struct sunxi_engine *engine)
@@ -390,16 +406,20 @@ index 3cf1e40f4e69..97dbbfe50790 100644
 +}
 +
  static const struct sunxi_engine_ops sun8i_engine_ops = {
- 	.commit			= sun8i_mixer_commit,
- 	.layers_init		= sun8i_layers_init,
- 	.mode_set		= sun8i_mixer_mode_set,
- 	.get_supported_fmts	= sun8i_mixer_get_supported_fmts,
+-	.commit		= sun8i_mixer_commit,
+-	.layers_init	= sun8i_layers_init,
+-	.mode_set	= sun8i_mixer_mode_set,
+-	.format_valid	= sun8i_mixer_format_valid,
++	.commit				= sun8i_mixer_commit,
++	.layers_init			= sun8i_layers_init,
++	.mode_set			= sun8i_mixer_mode_set,
++	.format_valid			= sun8i_mixer_format_valid,
 +	.apply_color_correction		= sun8i_mixer_apply_color_correction,
 +	.disable_color_correction	= sun8i_mixer_disable_color_correction,
  };
  
- static const struct regmap_config sun8i_mixer_regmap_config = {
-@@ -791,6 +816,19 @@ static const struct sun8i_mixer_cfg sun8i_h3_mixer0_cfg = {
+ static void sun8i_mixer_sync(struct sunxi_engine *engine)
+@@ -967,6 +992,25 @@ static const struct sun8i_mixer_cfg sun8i_h3_mixer0_cfg = {
  	.vi_num		= 1,
  };
  
@@ -407,8 +427,14 @@ index 3cf1e40f4e69..97dbbfe50790 100644
 +	.lay_cfg = {
 +		.ccsc		= CCSC_MIXER1_LAYOUT,
 +		.de_type	= SUN8I_MIXER_DE2,
-+		.scaler_mask	= 0x3,
-+		.scanline_yuv	= 2048,
++		.vi_scaler_num	= 1,
++		.scaler_type	= {
++			SUN8I_SCALER_VI_10,
++			SUN8I_SCALER_UI,
++		},
++		.scanline_yuv	= {2048},
++		.scanline_rgb	= {2048, 2048},
++		.de2_fcc_alpha	= 1,
 +	},
 +	.de_type	= SUN8I_MIXER_DE2,
 +	.mod_rate	= 432000000,
@@ -419,7 +445,7 @@ index 3cf1e40f4e69..97dbbfe50790 100644
  static const struct sun8i_mixer_cfg sun8i_r40_mixer0_cfg = {
  	.lay_cfg = {
  		.ccsc		= CCSC_MIXER0_LAYOUT,
-@@ -935,6 +973,10 @@ static const struct of_device_id sun8i_mixer_of_table[] = {
+@@ -1144,6 +1188,10 @@ static const struct of_device_id sun8i_mixer_of_table[] = {
  		.compatible = "allwinner,sun8i-h3-de2-mixer-0",
  		.data = &sun8i_h3_mixer0_cfg,
  	},
@@ -431,10 +457,10 @@ index 3cf1e40f4e69..97dbbfe50790 100644
  		.compatible = "allwinner,sun8i-r40-de2-mixer-0",
  		.data = &sun8i_r40_mixer0_cfg,
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.h b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-index 7580edf81145..b5021ad7bac4 100644
+index 5f365121016f..96fbe2b00c25 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-@@ -125,6 +125,10 @@
+@@ -128,6 +128,10 @@
  /* format 20 is packed YVU444 10-bit */
  /* format 21 is packed YUV444 10-bit */
  
@@ -445,14 +471,15 @@ index 7580edf81145..b5021ad7bac4 100644
  /*
   * Sub-engines listed bellow are unused for now. The EN registers are here only
   * to be used to disable these sub-engines.
-@@ -135,7 +139,6 @@
+@@ -137,7 +141,7 @@
+ #define SUN8I_MIXER_LTI_EN			0xa4000
  #define SUN8I_MIXER_PEAK_EN			0xa6000
  #define SUN8I_MIXER_ASE_EN			0xa8000
- #define SUN8I_MIXER_FCC_EN			0xaa000
 -#define SUN8I_MIXER_DCSC_EN			0xb0000
++#define SUN8I_MIXER_FCC_EN			0xaa000
  
  #define SUN50I_MIXER_FCE_EN			0x70000
  #define SUN50I_MIXER_PEAK_EN			0x70800
 -- 
-2.52.0
+2.43.0
 

@@ -14,9 +14,9 @@ Fixes: 920169041baa ("drm/sun4i: dw-hdmi: Fix ddc-en GPIO consumer conflict")
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 ---
  drivers/gpu/drm/sun4i/Kconfig         |   1 +
- drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c | 145 +++++++++++++++++++++++---
+ drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c | 170 +++++++++++++++++++++++---
  drivers/gpu/drm/sun4i/sun8i_dw_hdmi.h |   5 +
- 3 files changed, 135 insertions(+), 16 deletions(-)
+ 3 files changed, 160 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/Kconfig b/drivers/gpu/drm/sun4i/Kconfig
 index b56ba00aabca..e96c240f0933 100644
@@ -31,7 +31,7 @@ index b56ba00aabca..e96c240f0933 100644
  	select DRM_GEM_DMA_HELPER
  	select DRM_KMS_HELPER
 diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
-index 718736950b98..431f9e1f611a 100644
+index 18c250190433..87cd7749a4eb 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
 @@ -8,13 +8,92 @@
@@ -127,22 +127,42 @@ index 718736950b98..431f9e1f611a 100644
  static void sun8i_dw_hdmi_encoder_mode_set(struct drm_encoder *encoder,
  					   struct drm_display_mode *mode,
  					   struct drm_display_mode *adj_mode)
-@@ -98,6 +176,8 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -100,8 +179,11 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
  {
  	struct platform_device *pdev = to_platform_device(dev);
  	struct dw_hdmi_plat_data *plat_data;
 +	struct cec_connector_info conn_info;
 +	struct drm_connector *connector;
  	struct drm_device *drm = data;
- 	struct device_node *phy_node;
+-	struct device_node *phy_node;
++	struct device_node *phy_node, *remote;
++	struct drm_bridge *next_bridge;
  	struct drm_encoder *encoder;
-@@ -107,9 +187,10 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+ 	struct sun8i_dw_hdmi *hdmi;
+ 	int ret;
+@@ -109,9 +191,26 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
  	if (!pdev->dev.of_node)
  		return -ENODEV;
  
 -	hdmi = devm_kzalloc(&pdev->dev, sizeof(*hdmi), GFP_KERNEL);
 -	if (!hdmi)
 -		return -ENOMEM;
++	/*
++	 * dw-hdmi attaches to the next bridge on its output port. Wait for
++	 * it here, before anything is registered, since deferring later in
++	 * bind would leave the dw-hdmi bridge and encoder behind.
++	 */
++	remote = of_graph_get_remote_node(dev->of_node, 1, -1);
++	if (!remote)
++		return -ENODEV;
++
++	next_bridge = of_drm_find_and_get_bridge(remote);
++	of_node_put(remote);
++	if (!next_bridge)
++		return dev_err_probe(dev, -EPROBE_DEFER,
++				     "Next bridge not ready\n");
++	drm_bridge_put(next_bridge);
++
 +	hdmi = devm_drm_bridge_alloc(&pdev->dev, struct sun8i_dw_hdmi,
 +				     bridge, &sun8i_hdmi_enc_bridge_funcs);
 +	if (IS_ERR(hdmi))
@@ -150,7 +170,7 @@ index 718736950b98..431f9e1f611a 100644
  
  	plat_data = &hdmi->plat_data;
  	hdmi->dev = &pdev->dev;
-@@ -179,30 +260,61 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -181,30 +280,68 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
  	if (ret)
  		goto err_disable_clk_tmds;
  
@@ -165,15 +185,9 @@ index 718736950b98..431f9e1f611a 100644
  	platform_set_drvdata(pdev, hdmi);
  
 -	hdmi->hdmi = dw_hdmi_bind(pdev, encoder, plat_data);
--
--	/*
--	 * If dw_hdmi_bind() fails we'll never call dw_hdmi_unbind(),
--	 * which would have called the encoder cleanup.  Do it manually.
--	 */
 +	hdmi->hdmi = dw_hdmi_probe(pdev, plat_data);
- 	if (IS_ERR(hdmi->hdmi)) {
- 		ret = PTR_ERR(hdmi->hdmi);
--		goto cleanup_encoder;
++	if (IS_ERR(hdmi->hdmi)) {
++		ret = PTR_ERR(hdmi->hdmi);
 +		goto err_deinit_phy;
 +	}
 +
@@ -203,6 +217,18 @@ index 718736950b98..431f9e1f611a 100644
 +
 +	hdmi->connector = connector;
 +	drm_connector_attach_encoder(connector, encoder);
+ 
+ 	/*
+-	 * If dw_hdmi_bind() fails we'll never call dw_hdmi_unbind(),
+-	 * which would have called the encoder cleanup.  Do it manually.
++	 * drm_connector_attach_max_bpc_property() requires the
++	 * connector to have a state.
+ 	 */
+-	if (IS_ERR(hdmi->hdmi)) {
+-		ret = PTR_ERR(hdmi->hdmi);
+-		goto cleanup_encoder;
++	drm_atomic_helper_connector_reset(connector);
++	drm_connector_attach_max_bpc_property(connector, 8, 16);
 +
 +	if (hdmi->quirks->use_drm_infoframe)
 +		drm_connector_attach_hdr_output_metadata_property(connector);
@@ -224,7 +250,7 @@ index 718736950b98..431f9e1f611a 100644
  	sun8i_hdmi_phy_deinit(hdmi->phy);
  err_disable_clk_tmds:
  	clk_disable_unprepare(hdmi->clk_tmds);
-@@ -219,7 +331,8 @@ static void sun8i_dw_hdmi_unbind(struct device *dev, struct device *master,
+@@ -221,7 +358,8 @@ static void sun8i_dw_hdmi_unbind(struct device *dev, struct device *master,
  {
  	struct sun8i_dw_hdmi *hdmi = dev_get_drvdata(dev);
  
@@ -260,6 +286,7 @@ index ab80d52a70bb..14db4c679e91 100644
  	struct drm_encoder		encoder;
  	struct sun8i_hdmi_phy		*phy;
  	struct dw_hdmi_plat_data	plat_data;
+-- 
 -- 
 2.52.0
 

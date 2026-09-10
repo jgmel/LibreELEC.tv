@@ -14,18 +14,20 @@ Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
  1 file changed, 17 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
-index 9d3cee74a9a2..29b10f5cd65d 100644
+index 88f08c625175..219b78e64e74 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
-@@ -182,11 +182,24 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
- 	struct device_node *phy_node;
+@@ -186,6 +186,7 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+ 	struct drm_bridge *next_bridge;
  	struct drm_encoder *encoder;
  	struct sun8i_dw_hdmi *hdmi;
 +	struct sun8i_hdmi_phy *phy;
  	int ret;
  
  	if (!pdev->dev.of_node)
- 		return -ENODEV;
+@@ -207,6 +208,18 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+ 				     "Next bridge not ready\n");
+ 	drm_bridge_put(next_bridge);
  
 +	phy_node = of_parse_phandle(dev->of_node, "phys", 0);
 +	if (!phy_node) {
@@ -42,7 +44,7 @@ index 9d3cee74a9a2..29b10f5cd65d 100644
  	hdmi = devm_drm_bridge_alloc(&pdev->dev, struct sun8i_dw_hdmi,
  				     bridge, &sun8i_hdmi_enc_bridge_funcs);
  	if (IS_ERR(hdmi))
-@@ -195,6 +208,7 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -215,6 +228,7 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
  	plat_data = &hdmi->plat_data;
  	hdmi->dev = &pdev->dev;
  	encoder = &hdmi->encoder;
@@ -50,7 +52,7 @@ index 9d3cee74a9a2..29b10f5cd65d 100644
  
  	hdmi->quirks = of_device_get_match_data(dev);
  
-@@ -242,29 +256,14 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -262,29 +276,14 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
  		goto err_assert_ctrl_reset;
  	}
  
@@ -82,7 +84,7 @@ index 9d3cee74a9a2..29b10f5cd65d 100644
  
  	platform_set_drvdata(pdev, hdmi);
  
-@@ -316,7 +315,7 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -343,7 +342,7 @@ static int sun8i_dw_hdmi_bind(struct device *dev, struct device *master,
  	return 0;
  
  err_deinit_phy:
@@ -91,6 +93,7 @@ index 9d3cee74a9a2..29b10f5cd65d 100644
  err_disable_clk_tmds:
  	clk_disable_unprepare(hdmi->clk_tmds);
  err_assert_ctrl_reset:
+-- 
 -- 
 2.52.0
 
