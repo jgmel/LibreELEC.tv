@@ -87,7 +87,7 @@ index 18c250190433..87cd7749a4eb 100644
 +
 +		drm_edid = drm_bridge_edid_read(hdmi->next_bridge,
 +						hdmi->connector);
-+		if (drm_edid)
++		if (!drm_edid)
 +			return;
 +
 +		edid = drm_edid_raw(drm_edid);
